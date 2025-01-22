@@ -4,6 +4,7 @@ A simple Telegram chat bot for LLMs supported by [llama.cpp](https://github.com/
 Easiest way to share your selfhosted ChatGPT style interface with friends and family! 
 Even group chat with your AI friend!
 
+This fork omits the audio responses.
 ## Demo
 
 
