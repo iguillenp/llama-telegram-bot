@@ -35,10 +35,6 @@ PROMPT_TEMPLATE = """You are a 6 year old girl named Alex. You answer questions 
 Q: {chat_in}.
 A: """
 
-engine = pyttsx3.init()
-engine.setProperty('rate', 120)
-
-
 class ChatMode(Enum):
     TEXT = 1
     VOICE = 2
@@ -168,37 +164,6 @@ async def generate_chat_response(prompt, temp_msg, context):
     return chat_out
 
 
-# Invokes llama api and returns generated chat response
-async def generate_audio_response(prompt, context, update):
-    chat_out = ""
-    try:
-        output = llama.create_completion(prompt, max_tokens=240, top_p=1, stop=["</s>"])
-        chat_out = output["choices"][0]["text"]
-
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            tmp_dir = Path(tmp_dir)
-            audio_file_name = tmp_dir / f"{update.message.chat_id}.mp3"
-            audio_mp3 = str(audio_file_name)
-
-            engine.save_to_file(chat_out, audio_mp3)
-            engine.runAndWait()
-
-            AudioSegment.from_file(audio_mp3).export(audio_mp3, format="mp3")
-            voice = AudioSegment.from_mp3(audio_mp3)
-
-            await update.message.reply_voice(audio_mp3, duration=voice.duration_seconds)
-
-        if not chat_out:
-            print("Empty generation")
-            await update.message.reply_text("No comments")
-    except Exception as e:
-        print(f"Unexpected error: {e}")
-        await update.message.reply_text("Sorry, something went wrong :(")
-        pass
-
-    return chat_out
-
-
 async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     voice = update.message.voice
     with tempfile.TemporaryDirectory() as tmp_dir:
@@ -240,7 +205,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         temp = await update.message.reply_text("...")
         chat_out = await generate_chat_response(prompt, temp_msg=temp, context=context)
     else:
-        chat_out = await generate_audio_response(prompt, context, update)
+        None
 
     save_chat(chat_id, chat_in, chat_out)
     print(f"user={chat_id}, response: {chat_out}")
