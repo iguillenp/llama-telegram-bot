@@ -26,19 +26,22 @@ ALLOWED_USERS = os.getenv("ALLOWED_USERS", "")
 GPU_LAYERS = os.getenv("GPU_LAYERS", 0)
 
 llama = Llama(model_path=MODEL_PATH, n_gpu_layers=int(GPU_LAYERS))
-
+try:
+    print(f"GPU layers in environment: {GPU_LAYERS}")
+    print(f"GPU layers in use: {llama.model.context.gpu_layers}")
+except:
+    None
 user_db = {}
 context_len = 250
 
-PROMPT_TEMPLATE = """You are a 6 year old girl named Alex. You answer questions in a kind manner.
-{chat_history}
-Q: {chat_in}.
-A: """
+PROMPT_TEMPLATE_FILE= os.getenv("PROMPT_TEMPLATE_FILE", 0)
+with open(PROMPT_TEMPLATE_FILE, "r") as f:
+    PROMPT_TEMPLATE = f.read()
+
+print(f"Using prompt:\n{PROMPT_TEMPLATE}")
 
 class ChatMode(Enum):
     TEXT = 1
-    VOICE = 2
-
 
 # Saves last N characters of chat history in memory
 def save_chat(user_id, chat_in, chat_out) -> None:
@@ -119,13 +122,6 @@ async def new_chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                                     reply_markup=main_menu_keyboard())
 
 
-async def start_voice_chat(update: Update, context: CallbackContext) -> None:
-    query = update.callback_query
-    set_chat_mode(query.message.chat_id, ChatMode.VOICE)
-    await query.answer()
-    await query.message.reply_text('Voice chat enabled')
-
-
 async def start_text_chat(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     set_chat_mode(query.message.chat_id, ChatMode.TEXT)
@@ -164,25 +160,6 @@ async def generate_chat_response(prompt, temp_msg, context):
     return chat_out
 
 
-async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    voice = update.message.voice
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        tmp_dir = Path(tmp_dir)
-        voice_ogg_path = tmp_dir / "voice.ogg"
-
-        # download
-        voice_file = await context.bot.get_file(voice.file_id)
-        await voice_file.download_to_drive(voice_ogg_path)
-
-        # convert to mp3
-        voice_mp3_path = tmp_dir / "voice.mp3"
-        AudioSegment.from_file(voice_ogg_path).export(voice_mp3_path, format="mp3")
-        audio = AudioSegment.from_mp3(voice_mp3_path)
-        transcribed_text = f"I got your message of {audio.duration_seconds} secs. This feature is coming soon!"
-        # TODO: Transcribe and generate response.
-
-    await update.message.reply_text(transcribed_text, parse_mode=ParseMode.HTML)
-
 # Handles telegram user chat message
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # print(f"message received: {update.message}")
@@ -220,8 +197,7 @@ async def post_init(application: Application):
 
 
 def main_menu_keyboard():
-    keyboard = [[InlineKeyboardButton('Text Chat', callback_data='text')],
-                [InlineKeyboardButton('Voice Chat', callback_data='voice')]]
+    keyboard = [[InlineKeyboardButton('Text Chat', callback_data='text')]]
     return InlineKeyboardMarkup(keyboard)
 
 
@@ -253,8 +229,6 @@ if __name__ == '__main__':
     app.add_handler(CommandHandler("start", start, filters=user_filter))
     app.add_handler(CommandHandler("new_chat", new_chat, filters=user_filter))
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND) & user_filter, handle_message))
-    app.add_handler(MessageHandler(filters.VOICE & user_filter, handle_voice))
-    app.add_handler(CallbackQueryHandler(start_voice_chat, pattern='voice'))
     app.add_handler(CallbackQueryHandler(start_text_chat, pattern='text'))
 
     print("Bot started")
