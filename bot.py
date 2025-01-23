@@ -21,22 +21,25 @@ class ChatMessagesBase:
     prompt_selected= ''
     empty_generation_response= ''
     unexpected_error_response= ''
+    model_info= ''
 
 class ChatMessagesEng(ChatMessagesBase):
     lang= 'eng'
-    initial_message= 'Hello {name}. I am an interface for llama.cpp. I have the {model} loaded. Choose the language to start prompting me:'
+    initial_message= 'Hello {name}. I am an interface for llama.cpp. I have the {model_name} loaded. Choose the language to start prompting me:'
     chat_start= 'Chat started. The prompt will be: \n---\n{prompt}\n---\n You can start the conversation now:'
     prompt_selected= 'You selected the prompt {prompt_filename}. The prompt will be: \n---\n{prompt}\n---\n'
     empty_generation_response= 'Sorry, I am went blank. Try something else'
     unexpected_error_response= 'Sorry, something went wrong :('
+    model_info= 'The model is: {model_name}\n---\nThe model info is: {model_info}\n---'
 
 class ChatMessagesSpa(ChatMessagesBase):
     lang= 'spa'
-    initial_message = 'Hola {name}. Soy una interfaz para llama.cpp. Tengo el modelo {model} cargado. Elige el idioma para comenzar a interactuar conmigo:'
+    initial_message = 'Hola {name}. Soy una interfaz para llama.cpp. Tengo el modelo {model_name} cargado. Elige el idioma para comenzar a interactuar conmigo:'
     chat_start = 'Chat iniciado. El prompt será: \n---\n{prompt}\n---\n Puedes comenzar la conversación ahora:'
     prompt_selected = 'Seleccionaste el prompt {prompt_filename}. El prompt será: \n---\n{prompt}\n---\n'
     empty_generation_response = 'Lo siento, me he quedado en blanco. Prueba con algo diferente'
     unexpected_error_response = 'Lo siento, algo ha salido mal :('
+    model_info= 'El modelo es: {model_name}\n---\nLa información del modelo es: {model_info}\n---'
 
 class ChatMessagesManager:
     """Manager to handle chat message switching with class variable access. Default with English messages."""
@@ -93,6 +96,50 @@ with open(f"{PROMPT_TEMPLATE_FOLDER}/{ChatMessages.lang}/default.prompt", "r") a
 
 user_db = {}
 context_len = 250
+
+def get_comprehensive_model_info(llama):
+    """Extract comprehensive Llama model information as a dictionary."""
+    model_info = {}
+    
+    # Collect information from model
+    try:
+        # Basic model attributes
+        for attr in dir(llama.model):
+            if not attr.startswith('_'):
+                try:
+                    value = getattr(llama.model, attr)
+                    model_info[f"model.{attr}"] = str(value)
+                except Exception as e:
+                    model_info[f"model.{attr}"] = f"Could not retrieve - {e}"
+        
+        # Context details
+        context = llama.model.context
+        for attr in dir(context):
+            if not attr.startswith('_'):
+                try:
+                    value = getattr(context, attr)
+                    model_info[f"context.{attr}"] = str(value)
+                except Exception as e:
+                    model_info[f"context.{attr}"] = f"Could not retrieve - {e}"
+        
+        # Additional metadata
+        additional_keys = [
+            'model_size', 'vocab_size', 
+            'params', 'n_ctx', 'n_embd', 'n_layer', 'n_head'
+        ]
+        
+        for key in additional_keys:
+            try:
+                value = getattr(llama.model, key, None)
+                if value is not None:
+                    model_info[key] = str(value)
+            except Exception as e:
+                model_info[key] = f"Could not retrieve - {e}"
+    
+    except Exception as e:
+        model_info['error'] = f"Comprehensive model info retrieval failed: {e}"
+    
+    return model_info
 
 
 
@@ -185,7 +232,13 @@ async def new_chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     print(f"/new_chat called by user={update.message.chat_id}")
     clear_chat_history(update.message.chat_id)
     await update.message.reply_text(ChatMessages.initial_message.format(name=update.effective_user.first_name,
-                                                                        model=MODEL_NAME),
+                                                                        model_name=MODEL_NAME),
+                                    reply_markup=language_menu_keyboard())
+
+async def get_model_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    await update.message.reply_text(ChatMessages.model_info.format( model_name=MODEL_NAME,
+                                                                    model_info=get_comprehensive_model_info(llama)),
                                     reply_markup=language_menu_keyboard())
 
 
@@ -288,6 +341,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 async def post_init(application: Application):
     await application.bot.set_my_commands([
         BotCommand("/new_chat", "Start new chat"),
+        BotCommand("/model_info", "Get info of the loaded model."),
     ])
     print("Bot commands added")
 
@@ -320,6 +374,7 @@ if __name__ == '__main__':
 
     # add handlers
     app.add_handler(CommandHandler("new_chat", new_chat, filters=user_filter))
+    app.add_handler(CommandHandler("model_info", get_model_info, filters=user_filter))
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND) & user_filter, handle_message))
     app.add_handler(CallbackQueryHandler(handle_language_selection, pattern='^language_'))
     app.add_handler(CallbackQueryHandler(handle_prompt_selection, pattern='^prompt_'))
