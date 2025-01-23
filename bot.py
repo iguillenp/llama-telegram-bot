@@ -226,8 +226,7 @@ async def new_chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def get_model_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(ChatMessages.model_info.format( model_name=MODEL_NAME,
-                                                                    model_info=get_comprehensive_model_info(llama)),
-                                    reply_markup=language_menu_keyboard())
+                                                                    model_info=get_comprehensive_model_info(llama)))
 
 
 # async def start_spanish_chat(update: Update, context: CallbackContext) -> None:
