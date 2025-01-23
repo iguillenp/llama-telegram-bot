@@ -99,41 +99,11 @@ with open(f"{PROMPT_TEMPLATE_FOLDER}/{ChatMessages.lang}/default.prompt", "r") a
 user_db = {}
 context_len = 250
 def get_comprehensive_model_info(llama):
-    """Extract comprehensive Llama model information."""
-    model_info = {}
-    
-    try:
-        # Basic model information
-        model_info['Model Path'] = llama.model_path
-        
-        # Try to get context-related info
-        try:
-            model_info['Context Size'] = llama.model.context.context_size
-            model_info['GPU Layers'] = llama.model.context.gpu_layers
-        except Exception as e:
-            model_info['Context Info'] = f"Could not retrieve - {e}"
-        
-        # Additional model details
-        model_details = [
-            'n_ctx', 'n_batch', 'n_threads', 
-            'n_gpu_layers', 'model_type', 'vocab_type'
-        ]
-        
-        for detail in model_details:
-            try:
-                value = getattr(llama.model, detail, None)
-                if value is not None:
-                    model_info[detail] = str(value)
-            except Exception:
-                pass
-        
-    except Exception as e:
-        model_info['Error'] = f"Model info retrieval failed: {e}"
-    
-    return model_info
+    return llama.__dict__
 
-def check_nvidia():
-    return subprocess.check_output(['nvidia-smi']).decode('utf-8')
+async def check_nvidia(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(subprocess.check_output(['nvidia-smi']).decode('utf-8'))
+
 
 # Saves last N characters of chat history in memory
 def save_chat(user_id, chat_in, chat_out) -> None:
