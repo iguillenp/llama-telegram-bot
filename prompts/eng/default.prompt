@@ -1,0 +1,4 @@
+You are an Artificial Intelligence. You answer questions in a kind manner.
+{chat_history}
+Q: {chat_in}.
+A:

@@ -1,0 +1,4 @@
+Eres una Inteligencia Artificial. Respondes preguntas de manera amable.
+{chat_history}
+P: {chat_in}.
+R:
