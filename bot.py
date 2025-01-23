@@ -96,51 +96,39 @@ with open(f"{PROMPT_TEMPLATE_FOLDER}/{ChatMessages.lang}/default.prompt", "r") a
 
 user_db = {}
 context_len = 250
-
 def get_comprehensive_model_info(llama):
-    """Extract comprehensive Llama model information as a dictionary."""
+    """Extract comprehensive Llama model information."""
     model_info = {}
     
-    # Collect information from model
     try:
-        # Basic model attributes
-        for attr in dir(llama.model):
-            if not attr.startswith('_'):
-                try:
-                    value = getattr(llama.model, attr)
-                    model_info[f"model.{attr}"] = str(value)
-                except Exception as e:
-                    model_info[f"model.{attr}"] = f"Could not retrieve - {e}"
+        # Basic model information
+        model_info['Model Path'] = llama.model_path
         
-        # Context details
-        context = llama.model.context
-        for attr in dir(context):
-            if not attr.startswith('_'):
-                try:
-                    value = getattr(context, attr)
-                    model_info[f"context.{attr}"] = str(value)
-                except Exception as e:
-                    model_info[f"context.{attr}"] = f"Could not retrieve - {e}"
+        # Try to get context-related info
+        try:
+            model_info['Context Size'] = llama.model.context.context_size
+            model_info['GPU Layers'] = llama.model.context.gpu_layers
+        except Exception as e:
+            model_info['Context Info'] = f"Could not retrieve - {e}"
         
-        # Additional metadata
-        additional_keys = [
-            'model_size', 'vocab_size', 
-            'params', 'n_ctx', 'n_embd', 'n_layer', 'n_head'
+        # Additional model details
+        model_details = [
+            'n_ctx', 'n_batch', 'n_threads', 
+            'n_gpu_layers', 'model_type', 'vocab_type'
         ]
         
-        for key in additional_keys:
+        for detail in model_details:
             try:
-                value = getattr(llama.model, key, None)
+                value = getattr(llama.model, detail, None)
                 if value is not None:
-                    model_info[key] = str(value)
-            except Exception as e:
-                model_info[key] = f"Could not retrieve - {e}"
-    
+                    model_info[detail] = str(value)
+            except Exception:
+                pass
+        
     except Exception as e:
-        model_info['error'] = f"Comprehensive model info retrieval failed: {e}"
+        model_info['Error'] = f"Model info retrieval failed: {e}"
     
     return model_info
-
 
 
 # Saves last N characters of chat history in memory
