@@ -222,7 +222,7 @@ def prompt_menu_keyboard():
 
     for file in os.listdir(f"{PROMPT_TEMPLATE_FOLDER}/{ChatMessages.lang}"):
         if file.endswith('.prompt'):
-            keyboard.append([InlineKeyboardButton(file, callback_data=f'prompt_{file}')])
+            keyboard.append([InlineKeyboardButton(file.replace(".prompt", ""), callback_data=f'prompt_{file}')])
 
     return InlineKeyboardMarkup(keyboard)
 
