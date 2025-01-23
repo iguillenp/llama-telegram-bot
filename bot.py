@@ -12,6 +12,8 @@ from llama_cpp import Llama
 import pyttsx3
 from pydub import AudioSegment
 from dotenv import load_dotenv
+import time
+import subprocess
 
 ##### Basic language manager for models #####
 class ChatMessagesBase:
@@ -130,6 +132,8 @@ def get_comprehensive_model_info(llama):
     
     return model_info
 
+def check_nvidia():
+    return subprocess.check_output(['nvidia-smi']).decode('utf-8')
 
 # Saves last N characters of chat history in memory
 def save_chat(user_id, chat_in, chat_out) -> None:
@@ -265,16 +269,25 @@ async def handle_prompt_selection(update: Update, context: ContextTypes.DEFAULT_
     
 
 # Invokes llama api and returns generated chat response
-async def generate_chat_response(prompt, temp_msg, context):
+async def generate_chat_response(prompt, temp_msg, context, max_generation_minutes=5):
+    max_generation_seconds= max_generation_minutes*60 # Transform minutes to seconds
+
     chat_out = ""
     try:
+        start_time = time.time()
         tokens = llama.create_completion(prompt, max_tokens=240, top_p=1, stop=["</s>"], stream=True)
         resp = []
         for token in tokens:
+            current_time = time.time()
+            elapsed_time = current_time - start_time
+
             tok = token["choices"][0]["text"]
             if not token["choices"][0]["finish_reason"]:
                 resp.append(tok)
                 chat_out = ''.join(resp)
+                # If time elapsed add it to the output
+                if elapsed_time > max_generation_seconds:
+                    chat_out += "[TimeOut]"
                 try:
                     # Edit response message on each token to simulate streaming.
                     await context.bot.editMessageText(text=chat_out, chat_id=temp_msg.chat_id,
@@ -284,6 +297,10 @@ async def generate_chat_response(prompt, temp_msg, context):
                     # telegram complaints on duplicate edits. pass it.
                     pass
 
+            # Break if time limit exceeded
+            if elapsed_time > max_generation_seconds:
+                return chat_out
+            
         if not resp:
             print("Empty generation")
             await context.bot.editMessageText(text=ChatMessages.empty_generation_response,
@@ -329,6 +346,8 @@ async def post_init(application: Application):
     await application.bot.set_my_commands([
         BotCommand("/new_chat", "Start new chat"),
         BotCommand("/model_info", "Get info of the loaded model."),
+        BotCommand("/nvidia_smi", "Get GPU info."),
+        
     ])
     print("Bot commands added")
 
@@ -362,6 +381,7 @@ if __name__ == '__main__':
     # add handlers
     app.add_handler(CommandHandler("new_chat", new_chat, filters=user_filter))
     app.add_handler(CommandHandler("model_info", get_model_info, filters=user_filter))
+    app.add_handler(CommandHandler("nvidia_smi", check_nvidia, filters=user_filter))
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND) & user_filter, handle_message))
     app.add_handler(CallbackQueryHandler(handle_language_selection, pattern='^language_'))
     app.add_handler(CallbackQueryHandler(handle_prompt_selection, pattern='^prompt_'))
