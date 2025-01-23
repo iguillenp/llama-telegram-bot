@@ -206,10 +206,10 @@ async def handle_language_selection(update: Update, context: ContextTypes.DEFAUL
     query = update.callback_query
     query.answer()
 
-    if query.data == 'language_es':
+    if query.data == 'language_spa':
         set_chat_language(query.message.chat_id, ChatMessagesSpa)
         await query.message.reply_text("Has seleccionado español. Ahora elige un prompt:", reply_markup=prompt_menu_keyboard())
-    elif query.data == 'language_en':
+    elif query.data == 'language_eng':
         set_chat_language(query.message.chat_id, ChatMessagesEng)
         await query.message.reply_text("You have selected English. Now choose a prompt:", reply_markup=prompt_menu_keyboard())
 
