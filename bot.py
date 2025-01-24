@@ -14,6 +14,9 @@ from pydub import AudioSegment
 from dotenv import load_dotenv
 import time
 import subprocess
+import io
+from contextlib import redirect_stdout
+import sys
 
 ##### Basic language manager for models #####
 class ChatMessagesBase:
@@ -83,7 +86,17 @@ MODEL_NAME= MODEL_PATH.split("/")[-1]
 ALLOWED_USERS = os.getenv("ALLOWED_USERS")
 GPU_LAYERS = os.getenv("GPU_LAYERS")
 
-llama = Llama(model_path=MODEL_PATH, n_gpu_layers=int(GPU_LAYERS))
+
+# Crea un buffer para capturar la salida
+output_buffer = io.StringIO()
+
+# Redirige la salida estándar
+with redirect_stdout(output_buffer):
+    llama = Llama(model_path=MODEL_PATH, n_gpu_layers=int(GPU_LAYERS))
+
+# Obtén la salida capturada como una cadena
+MODEL_INFO = output_buffer.getvalue()
+
 try:
     print(f"GPU layers in environment: {GPU_LAYERS}")
     print(f"GPU layers in use: {llama.model.context.gpu_layers}")
@@ -94,12 +107,15 @@ PROMPT_TEMPLATE_FOLDER= os.getenv("PROMPT_TEMPLATE_FOLDER")
 with open(f"{PROMPT_TEMPLATE_FOLDER}/{ChatMessages.lang}/default.prompt", "r") as f:
     PROMPT_TEMPLATE = f.read()
 
+# Creamos un buffer temporal
+buffer = io.StringIO()
+
+# Redirigimos la salida estándar al buffer
+sys.stdout = buffer
 
 
 user_db = {}
 context_len = 250
-def get_comprehensive_model_info(llama):
-    return llama.__dict__
 
 async def check_nvidia(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(subprocess.check_output(['nvidia-smi']).decode('utf-8'))
@@ -200,7 +216,7 @@ async def new_chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def get_model_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(ChatMessages.model_info.format( model_name=MODEL_NAME,
-                                                                    model_info=get_comprehensive_model_info(llama)))
+                                                                    model_info=MODEL_INFO))
 
 
 # async def start_spanish_chat(update: Update, context: CallbackContext) -> None:
@@ -362,4 +378,10 @@ if __name__ == '__main__':
     else:
         print(f"Whole world can talk to your bot. Consider adding your ID to ALLOWED_USERS to make it private")
 
+    # Restauramos la salida estándar a su estado original
+    sys.stdout = sys.__stdout__
+
+    # Finalmente vaciamos el buffer de golpe
+    print(buffer.getvalue())
+    
     app.run_polling()
